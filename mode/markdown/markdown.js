@@ -407,6 +407,7 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
       styles.push(tokenTypes.asciiMath);
     }
 
+    styles = styles.filter(style => style.trim() != "");
     return styles.length ? styles.join(' ') : null;
   }
 
