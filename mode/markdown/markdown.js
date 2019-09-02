@@ -76,7 +76,8 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
     strikethrough: "strikethrough",
     emoji: "builtin",
     asciiMath: "asciimath",
-    texInline: "tex-inline"
+    texInline: "tex-inline",
+    texBlock: "tex-block"
   };
 
   for (var tokenType in tokenTypes) {
@@ -118,6 +119,8 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
     state.asciiMath = false;
     // Reset texInline state
     state.texInline = false;
+    // Reset texBlock state
+    state.texBlock = false;
     // Reset linkTitle state
     state.linkTitle = false;
     state.linkHref = false;
@@ -414,6 +417,10 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
       styles.push(tokenTypes.texInline);
     }
 
+    if (state.texBlock) {
+      styles.push(tokenTypes.texBlock);
+    }
+
     styles = styles.filter(style => style.trim() != "");
     return styles.length ? styles.join(' ') : null;
   }
@@ -425,6 +432,52 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
     return undefined;
   }
 
+  function eatAsciiMath(stream, state) {
+    var type = getType(state);
+
+    if (stream.skipTo("]$")) {
+      stream.next();
+      stream.next();
+      state.asciiMath = false;
+    }
+    else {
+      stream.skipToEnd();
+    }
+
+    return type;
+  }
+
+  function eatTexInline(stream, state) {
+    var type = getType(state);
+
+    if (stream.skipTo("$$")) {
+      stream.next();
+      stream.next();
+      state.texInline = false;
+    }
+    else {
+      stream.skipToEnd();
+    }
+
+    return type;
+  }
+
+  function eatTexBlock(stream, state) {
+    var type = getType(state);
+
+    if (stream.skipTo("$$$")) {
+      stream.next();
+      stream.next();
+      stream.next();
+      state.texBlock = false;
+    }
+    else {
+      stream.skipToEnd();
+    }
+
+    return type;
+  }
+
   function inlineNormal(stream, state) {
     var style = state.text(stream, state);
     if (typeof style !== 'undefined')
@@ -433,6 +486,16 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
     if (state.list) { // List marker (*, +, -, 1., etc)
       state.list = null;
       return getType(state);
+    }
+
+    if (state.asciiMath) {
+      return eatAsciiMath(stream, state);
+    }
+    else if (state.texInline) {
+      return eatTexInline(stream, state);
+    }
+    else if (state.texBlock) {
+      return eatTexBlock(stream, state);
     }
 
     if (state.taskList) {
@@ -500,60 +563,19 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
 
     if (ch === '$' && (stream.peek() === '[')) {
       state.asciiMath = true;
-
-      var type = "";
-
-      if (stream.skipTo("]$")) {
-        stream.next();
-        stream.next();
-        type = getType(state);
-        state.asciiMath = false;
-      }
-      else {
-        stream.skipToEnd();
-        type = getType(state);
-      }
-
-      return type;
-    }
-
-    if (ch === ']' && (stream.peek() === '$') && state.asciiMath) {
-      stream.next();
-      var type = getType(state);
-      state.asciiMath = false;
-      return type;
+      return eatAsciiMath(stream, state);
     }
 
     if (ch === '$' && (stream.peek() === '$'))
     {
-      if (state.texInline)
-      {
+      if (!stream.match("$$", true)) {
+        state.texInline = true;
         stream.next();
-        let type = getType(state);
-        state.texInline = false;
-        return type;
+        return eatTexInline(stream, state);
       }
-      else
-      {
-        if (!stream.match("$$", true))
-        {
-          state.texInline = true;
-
-          let type = "";
-
-          if (stream.skipTo("$$")) {
-            stream.next();
-            stream.next();
-            type = getType(state);
-            state.texInline = false;
-          }
-          else {
-            stream.skipToEnd();
-            type = getType(state);
-          }
-
-          return type;
-        }
+      else {
+        state.texBlock = true;
+        return eatTexBlock(stream, state);
       }
     }
 
@@ -849,7 +871,8 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
         emoji: false,
         fencedEndRE: null,
         asciiMath: false,
-        texInline: false
+        texInline: false,
+        texBlock: false
       };
     },
 
@@ -891,7 +914,8 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
         md_inside: s.md_inside,
         fencedEndRE: s.fencedEndRE,
         asciiMath: s.asciiMath,
-        texInline: s.texInline
+        texInline: s.texInline,
+        texBlock: s.texBlock
       };
     },
 
