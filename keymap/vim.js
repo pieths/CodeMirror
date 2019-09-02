@@ -4352,6 +4352,17 @@
         var vim = cm.state.vim;
         var commandHistoryRegister = vimGlobalState.registerController.getRegister(':');
         var previousCommand = commandHistoryRegister.toString();
+
+        // Save the selection bounds
+        var selection = {};
+        if (cm.doc.somethingSelected())
+        {
+          selection.start = cm.getCursor('from');
+          selection.end   = cm.getCursor('to');
+          selection.isValid = true;
+        }
+        else selection.isValid = false;
+
         if (vim.visualMode) {
           exitVisualMode(cm);
         }
@@ -4399,6 +4410,7 @@
           return;
         }
         try {
+          params.selection = selection;
           exCommands[commandName](cm, params);
           // Possibly asynchronous commands (e.g. substitute, which might have a
           // user confirmation), are responsible for calling the callback when
