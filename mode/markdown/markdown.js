@@ -75,7 +75,8 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
     strong: "strong",
     strikethrough: "strikethrough",
     emoji: "builtin",
-    asciiMath: "asciimath"
+    asciiMath: "asciimath",
+    texInline: "tex-inline"
   };
 
   for (var tokenType in tokenTypes) {
@@ -115,6 +116,8 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
   function blankLine(state) {
     // Reset asciiMath state
     state.asciiMath = false;
+    // Reset texInline state
+    state.texInline = false;
     // Reset linkTitle state
     state.linkTitle = false;
     state.linkHref = false;
@@ -407,6 +410,10 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
       styles.push(tokenTypes.asciiMath);
     }
 
+    if (state.texInline) {
+      styles.push(tokenTypes.texInline);
+    }
+
     styles = styles.filter(style => style.trim() != "");
     return styles.length ? styles.join(' ') : null;
   }
@@ -515,6 +522,39 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
       var type = getType(state);
       state.asciiMath = false;
       return type;
+    }
+
+    if (ch === '$' && (stream.peek() === '$'))
+    {
+      if (state.texInline)
+      {
+        stream.next();
+        let type = getType(state);
+        state.texInline = false;
+        return type;
+      }
+      else
+      {
+        if (!stream.match("$$", true))
+        {
+          state.texInline = true;
+
+          let type = "";
+
+          if (stream.skipTo("$$")) {
+            stream.next();
+            stream.next();
+            type = getType(state);
+            state.texInline = false;
+          }
+          else {
+            stream.skipToEnd();
+            type = getType(state);
+          }
+
+          return type;
+        }
+      }
     }
 
     if (ch === '!' && stream.match(/\[[^\]]*\] ?(?:\(|\[)/, false)) {
@@ -808,7 +848,8 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
         strikethrough: false,
         emoji: false,
         fencedEndRE: null,
-        asciiMath: false
+        asciiMath: false,
+        texInline: false
       };
     },
 
@@ -849,7 +890,8 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
         trailingSpaceNewLine: s.trailingSpaceNewLine,
         md_inside: s.md_inside,
         fencedEndRE: s.fencedEndRE,
-        asciiMath: s.asciiMath
+        asciiMath: s.asciiMath,
+        texInline: s.texInline
       };
     },
 
