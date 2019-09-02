@@ -77,7 +77,10 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
     emoji: "builtin",
     asciiMath: "asciimath",
     texInline: "tex-inline",
-    texBlock: "tex-block"
+    texBlock: "tex-block",
+    cgraphBody: "cgraph-body",
+    cgraphHeader: "cgraph-header",
+    cgraphFooter: "cgraph-footer"
   };
 
   for (var tokenType in tokenTypes) {
@@ -409,6 +412,18 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
       styles.push("trailing-space-" + (state.trailingSpace % 2 ? "a" : "b"));
     }
  
+    if (state.inCGraphHeader) {
+      styles.push(tokenTypes.cgraphHeader);
+    }
+
+    if (state.inCGraphBody) {
+      styles.push(tokenTypes.cgraphBody);
+    }
+
+    if (state.inCGraphFooter) {
+      styles.push(tokenTypes.cgraphFooter);
+    }
+
     if (state.asciiMath) {
       styles.push(tokenTypes.asciiMath);
     }
@@ -578,6 +593,35 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
         return eatTexBlock(stream, state);
       }
     }
+
+    if (ch === ':') {
+      let match = stream.match(/^::(?:\s+(cgraph))?/, true)
+      if (match) {
+        if (match[1] == 'cgraph') {
+          stream.skipToEnd();
+          state.inCGraphHeader = true;
+          let type = getType(state);
+          state.inCGraphHeader = false;
+
+          state.inCGraphBody = true;
+          return type;
+        }
+        else if ((match[1] === undefined) && state.inCGraphBody) {
+          state.inCGraphBody = false;
+          state.inCGraphFooter = true;
+          let type = getType(state);
+          state.inCGraphFooter = false;
+          return type;
+        }
+      }
+    }
+
+    /*
+     * If inside a cgraph body then stop all futher
+     * processing so that characters like '_' and '*'
+     * don't trigger unwanted styling.
+     */
+    if (state.inCGraphBody) return getType(state);
 
     if (ch === '!' && stream.match(/\[[^\]]*\] ?(?:\(|\[)/, false)) {
       state.imageMarker = true;
@@ -872,7 +916,10 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
         fencedEndRE: null,
         asciiMath: false,
         texInline: false,
-        texBlock: false
+        texBlock: false,
+        inCGraphHeader: false,
+        inCGraphFooter: false,
+        inCGraphBody: false
       };
     },
 
@@ -915,7 +962,10 @@ CodeMirror.defineMode("markdown", function(cmCfg, modeCfg) {
         fencedEndRE: s.fencedEndRE,
         asciiMath: s.asciiMath,
         texInline: s.texInline,
-        texBlock: s.texBlock
+        texBlock: s.texBlock,
+        inCGraphHeader: s.inCGraphHeader,
+        inCGraphFooter: s.inCGraphFooter,
+        inCGraphBody: s.inCGraphBody
       };
     },
 
